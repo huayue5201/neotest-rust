@@ -1,5 +1,4 @@
 local lib = require("neotest.lib")
-local sep = require("plenary.path").path.sep
 local util = require("neotest-rust.util")
 
 local M = {}
@@ -19,7 +18,7 @@ local has_quantified_captures = vim.fn.has("nvim-0.11.0") == 1
 local function get_src_paths(root)
     local src_paths = {}
 
-    local manifest_path = root .. sep .. "Cargo.toml"
+    local manifest_path = vim.fs.joinpath(root, "Cargo.toml")
     if not util.file_exists(manifest_path) then
         vim.notify("Cargo.toml not found at: " .. manifest_path, vim.log.levels.WARN)
         return src_paths
@@ -34,8 +33,12 @@ local function get_src_paths(root)
         "--quiet",
     }
 
-    local handle = io.popen(table.concat(cmd, " ") .. " 2>&1")
-    if not handle then
+    -- 使用 vim.system 替代 io.popen，避免 shell 依赖和参数边界丢失
+    local ok, result = pcall(function()
+        return vim.system(cmd, { text = true }, nil):wait(60000)
+    end)
+
+    if not ok or not result then
         vim.notify("Failed to run cargo test command", vim.log.levels.ERROR)
         return src_paths
     end
@@ -48,22 +51,24 @@ local function get_src_paths(root)
         json_decode = vim.fn.json_decode
     else
         vim.notify("No JSON decoder available", vim.log.levels.ERROR)
-        handle:close()
         return src_paths
     end
 
-    for line in handle:lines() do
+    -- stdout 和 stderr 都可能有 JSON 行（cargo 的部分输出走 stderr）
+    local output = (result.stdout or "") .. "\n" .. (result.stderr or "")
+
+    for line in vim.gsplit(output, "\n", { plain = true }) do
         if line and line ~= "" and line:sub(1, 1) == "{" then
-            local ok, data = pcall(json_decode, line)
-            if ok and type(data) == "table" then
+            local decode_ok, data = pcall(json_decode, line)
+            if decode_ok and type(data) == "table" then
                 if data.reason == "compiler-artifact" then
                     local src_path = data.target and data.target.src_path
                     local executable = data.executable
 
                     if src_path and executable then
-                        local exec_type = type(executable)
-                        if exec_type == "string" and executable:find("deps", 1, true) then
-                            src_paths[src_path] = executable
+                        if type(executable) == "string" and executable:find("deps", 1, true) then
+                            -- normalize 统一为 "/"，保证后续比较和拼接一致
+                            src_paths[vim.fs.normalize(src_path)] = vim.fs.normalize(executable)
                         end
                     end
                 end
@@ -71,7 +76,6 @@ local function get_src_paths(root)
         end
     end
 
-    handle:close()
     return src_paths
 end
 
@@ -113,8 +117,8 @@ local function get_mods(path)
     local content = lib.files.read(path)
     local query = [[
 (mod_item
-	name: (identifier) @mod_name
-	.
+    name: (identifier) @mod_name
+    .
 )
     ]]
 
@@ -134,9 +138,9 @@ local function construct_mod_path(src_path, mod_name)
         return nil
     end
 
-    local mod_file = abs_path .. mod_name .. ".rs"
-    local mod_dir = abs_path .. mod_name .. sep .. "mod.rs"
-    local child_mod = abs_path .. parent_mod .. sep .. mod_name .. ".rs"
+    local mod_file = vim.fs.joinpath(abs_path, mod_name .. ".rs")
+    local mod_dir = vim.fs.joinpath(abs_path, mod_name, "mod.rs")
+    local child_mod = abs_path and parent_mod and vim.fs.joinpath(abs_path, parent_mod, mod_name .. ".rs") or nil
 
     if util.file_exists(mod_file) then
         return mod_file
@@ -193,6 +197,10 @@ M.get_test_binary = function(root, path)
         vim.notify("get_test_binary: root or path is nil", vim.log.levels.ERROR)
         return nil
     end
+
+    -- normalize 输入，保证与 cargo 输出比较一致
+    root = vim.fs.normalize(root)
+    path = vim.fs.normalize(path)
 
     -- 尝试获取正确的 root（处理 workspace 场景）
     local correct_root = get_correct_root(root, path)
@@ -288,7 +296,10 @@ M.translate_results = function(output_path)
         elseif string.find(line, "^test .+ %.%.%. %w+") then
             local test_name, cargo_result = string.match(line, "^test (.+) %.%.%. (%w+)")
             if test_name and cargo_result then
-                results[test_name] = { status = assert(result_map[cargo_result]) }
+                local status = result_map[cargo_result]
+                if status then
+                    results[test_name] = { status = status }
+                end
             end
         end
 

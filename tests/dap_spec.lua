@@ -1,6 +1,10 @@
 local async = require("nio.tests")
-local strings = require("plenary.strings")
 local dap = require("neotest-rust.dap")
+
+-- 辅助：去掉路径末尾的 hash 后缀（16 字符）
+local function strip_hash(path)
+    return path:sub(1, #path - 16)
+end
 
 describe("get_test_binary", function()
     -- Binaries are created for src/lib.rs, src/main.rs, tests/test_it.rs, and
@@ -19,7 +23,7 @@ describe("get_test_binary", function()
         async.it("returns the test binary for src/lib.rs", function()
             assert(lib_actual)
             local expected = root .. "/target/debug/deps/simple_package-"
-            local actual = strings.truncate(lib_actual, lib_actual:len() - 16, "-")
+            local actual = strip_hash(lib_actual)
 
             assert.equal(expected, actual)
         end)
@@ -27,7 +31,7 @@ describe("get_test_binary", function()
         async.it("returns the test binary for src/main.rs", function()
             assert(main_actual)
             local expected = root .. "/target/debug/deps/simple_package-"
-            local actual = strings.truncate(main_actual, main_actual:len() - 16, "-")
+            local actual = strip_hash(main_actual)
 
             assert.equal(expected, actual)
         end)
@@ -35,7 +39,7 @@ describe("get_test_binary", function()
         async.it("returns the test binary for src/bin/alt-bin.rs", function()
             assert(alt_bin_actual)
             local expected = root .. "/target/debug/deps/alt_bin-"
-            local actual = strings.truncate(alt_bin_actual, alt_bin_actual:len() - 16, "-")
+            local actual = strip_hash(alt_bin_actual)
 
             assert.equal(expected, actual)
         end)
@@ -71,7 +75,7 @@ describe("get_test_binary", function()
         async.it("returns the test binary for tests/test_it.rs", function()
             assert(test_it_actual)
             local expected = root .. "/target/debug/deps/test_it-"
-            local actual = strings.truncate(test_it_actual, test_it_actual:len() - 16, "-")
+            local actual = strip_hash(test_it_actual)
 
             assert.equal(expected, actual)
         end)
@@ -86,7 +90,7 @@ describe("get_test_binary", function()
         async.it("returns the test binary for tests/testsuite/main.rs", function()
             assert(testsuite_actual)
             local expected = root .. "/target/debug/deps/testsuite-"
-            local actual = strings.truncate(testsuite_actual, testsuite_actual:len() - 16, "-")
+            local actual = strip_hash(testsuite_actual)
 
             assert.equal(expected, actual)
         end)
@@ -101,7 +105,7 @@ describe("get_test_binary", function()
             assert(with_unit_actual)
 
             local expected = root .. "/target/debug/deps/with_unit_tests-"
-            local actual = strings.truncate(with_unit_actual, with_unit_actual:len() - 16, "-")
+            local actual = strip_hash(with_unit_actual)
 
             assert.equal(expected, actual)
         end)
@@ -112,7 +116,7 @@ describe("get_test_binary", function()
             assert(with_integration_main_actual)
 
             local expected = root .. "/target/debug/deps/with_integration_tests-"
-            local actual = strings.truncate(with_integration_main_actual, with_integration_main_actual:len() - 16, "-")
+            local actual = strip_hash(with_integration_main_actual)
 
             assert.equal(expected, actual)
         end)
@@ -122,7 +126,7 @@ describe("get_test_binary", function()
             assert(with_integration_it_actual)
 
             local expected = root .. "/target/debug/deps/it-"
-            local actual = strings.truncate(with_integration_it_actual, with_integration_it_actual:len() - 16, "-")
+            local actual = strip_hash(with_integration_it_actual)
 
             assert.equal(expected, actual)
         end)
