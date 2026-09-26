@@ -3,6 +3,8 @@
 [Neotest](https://github.com/rcarriga/neotest) adapter for Rust, using
 [cargo-nextest](https://nexte.st/).
 
+[中文文档](README.zh.md)
+
 Requires [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
 and the parser for Rust.
 
@@ -50,6 +52,27 @@ require("neotest").setup({
 See [nvim-dap](https://github.com/mfussenegger/nvim-dap/wiki/Debug-Adapter-installation),
 and [rust-tools#debugging](https://github.com/simrat39/rust-tools.nvim/wiki/Debugging) if you are using rust-tools.nvim,
 for more information.
+
+## Environment variables (added by this fork)
+
+Pass environment variables to the test process via the `env` option:
+
+```lua
+require("neotest").setup({
+  adapters = {
+    require("neotest-rust") {
+        args = { "--no-capture" },
+        env = {
+          RUST_LOG = "debug",
+          RUST_BACKTRACE = "1",
+        },
+    }
+  }
+})
+```
+
+Environment variables are passed to the test process through `spec.env`
+only; they are never spliced into the command string.
 
 ## Limitations
 

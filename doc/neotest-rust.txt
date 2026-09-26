@@ -1,0 +1,91 @@
+*neotest-rust.txt*    Neotest adapter for Rust (cargo-nextest)
+
+==============================================================================
+CONTENTS                                                  *neotest-rust*
+
+1. Introduction ..................................... |neotest-rust-intro|
+2. Installation ..................................... |neotest-rust-install|
+3. Configuration .................................... |neotest-rust-config|
+4. Debugging tests .................................. |neotest-rust-dap|
+5. Limitations ...................................... |neotest-rust-limits|
+
+==============================================================================
+1. INTRODUCTION                                      *neotest-rust-intro*
+
+neotest-rust is a |neotest| adapter for Rust, using cargo-nextest.
+
+Requires nvim-treesitter and the Rust parser.
+
+Supports standard library tests, rstest, Tokio's `#[tokio::test]`, and more.
+Does not support rstest's parametrized tests.
+
+==============================================================================
+2. INSTALLATION                                    *neotest-rust-install*
+
+>    require("neotest").setup({
+      adapters = {
+        require("neotest-rust")
+      }
+    })
+<
+
+==============================================================================
+3. CONFIGURATION                                    *neotest-rust-config*
+
+Pass additional arguments to `cargo nextest` via `args`: >
+    require("neotest").setup({
+      adapters = {
+        require("neotest-rust") {
+            args = { "--no-capture" },
+        }
+      }
+    })
+<
+Pass environment variables to the test process via `env`: >
+    require("neotest").setup({
+      adapters = {
+        require("neotest-rust") {
+            args = { "--no-capture" },
+            env = {
+              RUST_LOG = "debug",
+              RUST_BACKTRACE = "1",
+            },
+        }
+      }
+    })
+<
+Environment variables are passed through `spec.env` only; they are never
+spliced into the command string.
+
+==============================================================================
+4. DEBUGGING TESTS                                      *neotest-rust-dap*
+
+Codelldb is the default adapter used for debugging. Alternatives can be
+specified via `dap_adapter`: >
+    require("neotest").setup({
+      adapters = {
+        require("neotest-rust") {
+            args = { "--no-capture" },
+            dap_adapter = "lldb",
+        }
+      }
+    })
+<
+
+==============================================================================
+5. LIMITATIONS                                      *neotest-rust-limits*
+
+The following apply to both running and debugging tests.
+
+- Assumes unit tests in `main.rs`, `mod.rs` and `lib.rs` are in a `tests`
+  module.
+- Does not support rstest's `#[case]` macro.
+- When running tests for a `main.rs` in an integration test subdirectory
+  (e.g. `tests/testsuite/main.rs`), all tests in that subdirectory will be
+  run. Cargo cannot specify a single test file.
+
+Additionally, when debugging, no output from failed tests is captured in the
+results provided to Neotest.
+
+==============================================================================
+vim:tw=78:ts=8:noet:ft=help:norl:
