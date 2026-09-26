@@ -12,20 +12,38 @@ local xml = require("neotest.lib.xml")
 
 local adapter = { name = "neotest-rust" }
 
+-- 新增：存储配置选项
+local config = {
+    args = {},
+    env = {}, -- 新增环境变量支持
+    dap_adapter = "codelldb",
+}
+
 local cargo_metadata = setmetatable({}, {
     __call = function(self, cwd)
         local metadata = self[cwd]
         if metadata ~= nil then
             return metadata
         else
-            Job:new({
+            local output = nil
+            local job = Job:new({
                 command = "cargo",
                 args = { "metadata", "--no-deps" },
                 cwd = cwd,
+                timeout = 30000,
                 on_exit = function(j, return_val)
-                    metadata = vim.json.decode(j:result()[1])
+                    local result = j:result()
+                    output = (result and #result > 0) and result[1] or nil
                 end,
-            }):sync()
+            })
+            job:sync()
+
+            if output and output ~= "" then
+                metadata = vim.json.decode(output)
+            else
+                metadata = { packages = {}, workspace_root = cwd, target_directory = cwd .. "/target" }
+            end
+
             self[cwd] = metadata
             return metadata
         end
@@ -57,11 +75,32 @@ local package_name_by_root = function(package_root)
 end
 
 local get_args = function()
-    return {}
+    return config.args
 end
 
 local get_dap_adapter = function()
-    return "codelldb"
+    return config.dap_adapter
+end
+
+local get_env = function()
+    return config.env
+end
+
+-- 新增：构建带环境变量的命令
+local function build_command_with_env(cmd_parts, env_vars)
+    local cmd = table.concat(cmd_parts, " ")
+
+    if not env_vars or vim.tbl_isempty(env_vars) then
+        return cmd
+    end
+
+    -- 构建环境变量字符串
+    local env_strings = {}
+    for key, value in pairs(env_vars) do
+        table.insert(env_strings, string.format("%s=%s", key, value))
+    end
+
+    return table.concat(env_strings, " ") .. " " .. cmd
 end
 
 local is_callable = function(obj)
@@ -104,12 +143,10 @@ end
 
 local function path_to_test_path(path)
     local root = get_package_root(path)
-    -- main.rs, lib.rs, and mod.rs aren't part of the test name
     for _, filename in ipairs({ "main", "lib", "mod" }) do
         path = path:gsub(filename .. ".rs$", "")
     end
 
-    -- Trim '.rs'
     path = path:gsub(".rs$", "")
 
     if is_unit_test(path) then
@@ -121,8 +158,6 @@ local function path_to_test_path(path)
     else
         path = Path:new(path)
         path = path:make_relative(root .. Path.path.sep .. "tests")
-        -- Remove the first component of the path of an integration test in a
-        -- subdirectory, e.g. 'testsuite/foo/bar.rs' becomes 'foo/bar.rs'
         if path:find(Path.path.sep) then
             path = path:gsub("^.+" .. Path.path.sep, "")
         else
@@ -130,11 +165,8 @@ local function path_to_test_path(path)
         end
     end
 
-    -- Replace separators with '::'
     path = path:gsub(Path.path.sep, "::")
 
-    -- If the file was main.rs, lib.rs, or mod.rs, the relative path will
-    -- be "." after we strip the filename.
     if path == "." then
         return nil
     else
@@ -259,7 +291,6 @@ function adapter.build_spec(args)
         vim.list_extend(command, { "--bin", binary_name(position.path) })
     end
 
-    -- Determine the package name if we're in a workspace
     local workspace_root = adapter.root(position.path) .. Path.path.sep
     local package_root = lib.files.match_root_pattern("Cargo.toml")(position.path)
     local belongs_to_workspace = (package_root:sub(0, #workspace_root) == workspace_root)
@@ -274,24 +305,19 @@ function adapter.build_spec(args)
     local test_filter
     if position.type == "test" then
         position_id = position.id
-        -- TODO: Support rstest parametrized tests
         test_filter = "-E " .. vim.fn.shellescape(package_filter .. "test(/^" .. position_id .. "$/)")
     elseif position.type == "file" then
         if package_name then
-            -- A basic filter to run tests within the package that will be
-            -- overridden later if 'position_id' is not nil
             test_filter = "-E " .. vim.fn.shellescape("package(" .. package_name .. ")")
         end
 
         position_id = path_to_test_path(position.path)
 
         if is_unit_test(position.path) and position_id == nil then
-            -- main.rs or lib.rs
             position_id = "tests"
         end
 
         if position_id then
-            -- Either a unit test or an integration test in a subdirectory
             test_filter = "-E " .. vim.fn.shellescape(package_filter .. "test(/^" .. position_id .. "::/)")
         end
     end
@@ -304,6 +330,9 @@ function adapter.build_spec(args)
         position_id = position_id,
         strategy = args.strategy,
     }
+
+    -- 获取环境变量（合并配置中的和额外传入的）
+    local env_vars = vim.tbl_deep_extend("force", get_env(), args.env or {})
 
     -- Debug
     if args.strategy == "dap" then
@@ -331,26 +360,28 @@ function adapter.build_spec(args)
             stopOnEntry = false,
             args = dap_args,
             program = dap.get_test_binary(cwd, position.path),
+            env = env_vars, -- 添加环境变量到 DAP
         }
 
-        -- codelldb must be provided with a file for stdout in its launch parameters.
-        -- https://github.com/vadimcn/codelldb/blob/v1.9.0/MANUAL.md#stdio-redirection
         if get_dap_adapter() == "codelldb" then
             strategy["stdio"] = { nil, async.fn.tempname() }
         end
 
         return {
+            command = build_command_with_env(command, env_vars), -- 使用增强的命令构建
             cwd = cwd,
             context = context,
             strategy = strategy,
+            env = env_vars, -- 添加环境变量到 spec
         }
     end
 
     -- Run
     return {
-        command = table.concat(command, " "),
+        command = build_command_with_env(command, env_vars), -- 使用增强的命令构建
         cwd = cwd,
         context = context,
+        env = env_vars, -- 添加环境变量到 spec
     }
 end
 
@@ -362,7 +393,7 @@ end
 function adapter.results(spec, result, tree)
     ---@type table<string, neotest.Result>
     local results = {}
-    local output_path = spec.strategy.stdio and spec.strategy.stdio[2] or result.output
+    local output_path = spec.strategy and spec.strategy.stdio and spec.strategy.stdio[2] or result.output
 
     if util.file_exists(spec.context.junit_path) then
         local data
@@ -426,6 +457,12 @@ setmetatable(adapter, {
                 return opts.args
             end
         end
+
+        -- 新增：处理 env 配置
+        if opts.env then
+            config.env = opts.env
+        end
+
         if is_callable(opts.dap_adapter) then
             get_dap_adapter = opts.dap_adapter
         elseif opts.dap_adapter then
@@ -433,6 +470,7 @@ setmetatable(adapter, {
                 return opts.dap_adapter
             end
         end
+
         return adapter
     end,
 })
