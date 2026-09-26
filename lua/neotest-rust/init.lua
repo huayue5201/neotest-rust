@@ -2,7 +2,7 @@ local async = require("neotest.async")
 local dap = require("neotest-rust.dap")
 local util = require("neotest-rust.util")
 local errors = require("neotest-rust.errors")
-local open = vim.io.open
+local open = io.open
 local lib = require("neotest.lib")
 local xml = require("neotest.lib.xml")
 
@@ -479,12 +479,14 @@ function adapter.results(spec, result, tree)
                     end
 
                     if testcase.failure then
-                        local failure = testcase.failure[1] or testcase.failure
-                        local output = type(failure) == "string" and failure or failure._text or ""
+                        local failure = testcase.failure[1]
+                        if type(failure) ~= "string" then
+                            failure = nil
+                        end
                         results[name] = {
                             status = "failed",
-                            short = output,
-                            errors = errors.parse_errors(output),
+                            short = failure,
+                            errors = errors.parse_errors(failure),
                         }
                     else
                         results[name] = { status = "passed" }

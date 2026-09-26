@@ -5,7 +5,6 @@ vim.opt.rtp:append(cwd .. "/deps/lazy.nvim")
 
 require("lazy.minit").busted({
     spec = {
-        "nvim-lua/plenary.nvim",
         {
             "nvim-treesitter/nvim-treesitter",
             config = function()

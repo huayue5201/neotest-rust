@@ -35,7 +35,7 @@ local function get_src_paths(root)
 
     -- 使用 vim.system 替代 io.popen，避免 shell 依赖和参数边界丢失
     local ok, result = pcall(function()
-        return vim.system(cmd, { text = true }, nil):wait(60000)
+        return vim.system(cmd, { cwd = root, text = true }, nil):wait(60000)
     end)
 
     if not ok or not result then
