@@ -483,10 +483,25 @@ function adapter.results(spec, result, tree)
                         if type(failure) ~= "string" then
                             failure = nil
                         end
+
+                        -- Fall back to the JUnit <failure> `message` attribute when
+                        -- the body cannot be parsed (e.g. the captured output has no
+                        -- rustc panic header). neotest then places the diagnostic on
+                        -- the test's own line.
+                        local message_attr = nil
+                        if type(testcase.failure) == "table" and testcase.failure._attr then
+                            message_attr = testcase.failure._attr.message
+                        end
+
+                        local parsed = errors.parse_errors(failure)
+                        if #parsed == 0 and message_attr and message_attr ~= "" then
+                            parsed = { { message = message_attr } }
+                        end
+
                         results[name] = {
                             status = "failed",
-                            short = failure,
-                            errors = errors.parse_errors(failure),
+                            short = failure or message_attr,
+                            errors = parsed,
                         }
                     else
                         results[name] = { status = "passed" }
