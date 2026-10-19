@@ -360,13 +360,17 @@ function adapter.build_spec(args)
     end
 
     local position_id
+    -- test_filter 只保存 filterset 表达式本身（写入 context，供 dap 策略使用）；
+    -- -E 与表达式必须作为两个 argv 元素传给 cargo nextest：
+    -- 拼成 "-E 'test(...)'" 这种单字符串时，shellescape 加的单引号会被 clap
+    -- 当成 filterset 内容的一部分，报 "expected expression / failed to parse filterset"。
     local test_filter
     if position.type == "test" then
         position_id = position.id
-        test_filter = "-E " .. vim.fn.shellescape(package_filter .. "test(/^" .. position_id .. "$/)")
+        test_filter = package_filter .. "test(/^" .. position_id .. "$/)"
     elseif position.type == "file" then
         if package_name then
-            test_filter = "-E " .. vim.fn.shellescape("package(" .. package_name .. ")")
+            test_filter = "package(" .. package_name .. ")"
         end
 
         position_id = path_to_test_path(position.path)
@@ -376,10 +380,13 @@ function adapter.build_spec(args)
         end
 
         if position_id then
-            test_filter = "-E " .. vim.fn.shellescape(package_filter .. "test(/^" .. position_id .. "::/)")
+            test_filter = package_filter .. "test(/^" .. position_id .. "::/)"
         end
     end
-    table.insert(command, test_filter)
+
+    if test_filter then
+        vim.list_extend(command, { "-E", test_filter })
+    end
 
     local context = {
         junit_path = junit_path,
