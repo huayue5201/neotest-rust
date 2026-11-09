@@ -3,6 +3,12 @@
 [Neotest](https://github.com/rcarriga/neotest) 的 Rust 适配器,基于
 [cargo-nextest](https://nexte.st/)。
 
+> **维护分支。** 上游
+> [rouge8/neotest-rust](https://github.com/rouge8/neotest-rust) 已停止维护。本分支
+> ([huayue5201/neotest-rust](https://github.com/huayue5201/neotest-rust))
+> 在其基础上修复问题以保持可用,对外配置保持兼容。改动见
+> [本分支的改动](#本分支的改动)。
+
 需要 [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
 以及 Rust 语言解析器。
 
@@ -69,6 +75,14 @@ require("neotest").setup({
 ```
 
 环境变量只会通过 `spec.env` 传入测试进程,不会拼进命令字符串。
+
+## 本分支的改动
+
+- 移除了 `plenary.nvim` 依赖。
+- 新增 `env` 选项(见上),修复 `dap_adapter` 处理。
+- panic/错误解析更宽容:兼容新旧 libtest panic 格式与 CRLF 换行。
+- 修复 nextest 过滤表达式引号问题:`-E` 表达式与 filterset 现在作为
+  独立参数传入,引号不再被当成 filterset 内容。
 
 ## 限制
 

@@ -7,12 +7,17 @@ CONTENTS                                                  *neotest-rust*
 2. Installation ..................................... |neotest-rust-install|
 3. Configuration .................................... |neotest-rust-config|
 4. Debugging tests .................................. |neotest-rust-dap|
-5. Limitations ...................................... |neotest-rust-limits|
+5. Changes in this fork ............................. |neotest-rust-fork|
+6. Limitations ...................................... |neotest-rust-limits|
 
 ==============================================================================
 1. INTRODUCTION                                      *neotest-rust-intro*
 
 neotest-rust is a |neotest| adapter for Rust, using cargo-nextest.
+
+This is a maintenance fork of rouge8/neotest-rust, which is no longer
+maintained. It keeps the public configuration unchanged and only fixes
+bugs; see |neotest-rust-fork| for the differences.
 
 Requires nvim-treesitter and the Rust parser.
 
@@ -73,7 +78,19 @@ specified via `dap_adapter`: >
 <
 
 ==============================================================================
-5. LIMITATIONS                                      *neotest-rust-limits*
+5. CHANGES IN THIS FORK                             *neotest-rust-fork*
+
+- Removed the plenary.nvim dependency.
+- Added the `env` option (see |neotest-rust-config|) and fixed `dap_adapter`
+  handling.
+- Panic/error parsing accepts both the old and new libtest panic formats
+  and CRLF line endings.
+- The nextest filter expression (`-E`) and the filterset are passed as
+  separate arguments, so quotes are no longer interpreted as part of the
+  filterset.
+
+==============================================================================
+6. LIMITATIONS                                      *neotest-rust-limits*
 
 The following apply to both running and debugging tests.
 

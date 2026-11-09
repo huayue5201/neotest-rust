@@ -5,6 +5,12 @@
 
 [中文文档](README.zh.md)
 
+> **Maintenance fork.** Upstream
+> [rouge8/neotest-rust](https://github.com/rouge8/neotest-rust) is no longer
+> maintained. This fork ([huayue5201/neotest-rust](https://github.com/huayue5201/neotest-rust))
+> keeps the adapter working and fixes bugs; the public configuration is
+> unchanged. See [Changes in this fork](#changes-in-this-fork).
+
 Requires [nvim-treesitter](https://github.com/nvim-treesitter/nvim-treesitter)
 and the parser for Rust.
 
@@ -73,6 +79,16 @@ require("neotest").setup({
 
 Environment variables are passed to the test process through `spec.env`
 only; they are never spliced into the command string.
+
+## Changes in this fork
+
+- Removed the `plenary.nvim` dependency.
+- Added the `env` option (see above) and fixed `dap_adapter` handling.
+- More tolerant panic/error parsing: supports both the old and new libtest
+  panic formats and CRLF line endings.
+- Fixed quoting of the nextest filter expression: the `-E` expression and the
+  filterset are now passed as separate arguments, so quotes are no longer
+  interpreted as part of the filterset.
 
 ## Limitations
 
